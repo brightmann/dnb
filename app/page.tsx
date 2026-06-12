@@ -1,15 +1,18 @@
+import dynamic from 'next/dynamic'
 import { getPublishedPosts } from '@/lib/posts'
-import { getPostVotes } from '@/lib/votes'
-import { PlayfulLanding } from '@/components/blog/playful-landing'
+import { getAllVotes } from '@/lib/votes'
+import { buildPostListItems } from '@/lib/post-summary'
+import { HomePageSkeleton } from '@/components/blog/home-page-skeleton'
+
+const PlayfulLanding = dynamic(
+  () => import('@/components/blog/playful-landing').then((module) => module.PlayfulLanding),
+  { loading: () => <HomePageSkeleton /> }
+)
 
 export default function HomePage() {
   const posts = getPublishedPosts()
-  
-  // Add votes data to each post
-  const postsWithVotes = posts.map(post => ({
-    ...post,
-    votes: getPostVotes(post.slug)
-  }))
+  const votes = getAllVotes()
+  const postSummaries = buildPostListItems(posts, votes)
 
-  return <PlayfulLanding posts={postsWithVotes} />
+  return <PlayfulLanding posts={postSummaries} />
 }

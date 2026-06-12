@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import { cookies } from 'next/headers'
+import { cache } from 'react'
 
 export interface User {
   username: string
@@ -33,18 +34,17 @@ export function verifyToken(token: string): User | null {
       throw new Error('JWT secret not configured')
     }
 
-    const decoded = jwt.verify(token, secret) as User
-    return decoded
+    return jwt.verify(token, secret) as User
   } catch {
     return null
   }
 }
 
-export async function getAuthUser(): Promise<User | null> {
+export const getAuthUser = cache(async (): Promise<User | null> => {
   try {
     const cookieStore = await cookies()
     const token = cookieStore.get('auth-token')
-    
+
     if (!token?.value) {
       return null
     }
@@ -53,6 +53,14 @@ export async function getAuthUser(): Promise<User | null> {
   } catch {
     return null
   }
+})
+
+export async function requireAuth(): Promise<User | null> {
+  const user = await getAuthUser()
+  if (!user?.isAdmin) {
+    return null
+  }
+  return user
 }
 
 export function setAuthCookie(token: string) {
@@ -62,7 +70,7 @@ export function setAuthCookie(token: string) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: 60 * 60 * 24 * 7,
     path: '/',
   }
-} 
+}

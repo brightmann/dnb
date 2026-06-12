@@ -1,33 +1,34 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Heart } from 'lucide-react'
-import type { PostVotes } from '@/lib/votes'
+import { Button } from '@/components/ui/button'
 
 interface VoteButtonsProps {
   postSlug: string
-  initialVotes: PostVotes
+  initialUpvotes: number
 }
 
-export function VoteButtons({ postSlug, initialVotes }: VoteButtonsProps) {
-  const [votes, setVotes] = useState(initialVotes)
+export function VoteButtons({ postSlug, initialUpvotes }: VoteButtonsProps) {
+  const [upvotes, setUpvotes] = useState(initialUpvotes)
   const [isVoting, setIsVoting] = useState(false)
 
   const handleVote = async () => {
-    if (isVoting) return
+    if (isVoting) {
+      return
+    }
 
     setIsVoting(true)
     try {
       const response = await fetch('/api/votes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postSlug, type: 'up' })
+        body: JSON.stringify({ postSlug, type: 'up' }),
       })
 
       const data = await response.json()
       if (response.ok) {
-        setVotes(data.votes)
+        setUpvotes(data.votes.upvotes)
       }
     } catch (error) {
       console.error('Vote failed:', error)
@@ -45,7 +46,7 @@ export function VoteButtons({ postSlug, initialVotes }: VoteButtonsProps) {
       className="flex items-center gap-2 text-muted-foreground hover:text-red-500"
     >
       <Heart className="h-4 w-4" />
-      <span className="text-sm">{votes.upvotes}</span>
+      <span className="text-sm">{upvotes}</span>
     </Button>
   )
-} 
+}

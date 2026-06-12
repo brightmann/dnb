@@ -1,110 +1,111 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { useMemo, useState, useDeferredValue, useCallback } from 'react'
+import { motion } from 'motion/react'
 import { SearchBar } from '@/components/blog/search'
-import { VoteButtons } from '@/components/blog/vote-buttons'
+import { LandingPost } from '@/components/blog/landing-post'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { ModeToggle } from '@/components/ui/mode-toggle'
-import Link from 'next/link'
-import { 
-  Clock,
-  BookOpen,
-  Filter,
-  ChevronDown
-} from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { Post } from '@/lib/posts'
-import type { PostVotes } from '@/lib/votes'
-import { calculateReadingTime } from '@/lib/reading-time'
+import { Filter, ChevronDown } from 'lucide-react'
+import type { PostListItem } from '@/lib/post-summary'
+
+const MAX_VISIBLE_TAGS = 5
 
 interface PlayfulLandingProps {
-  posts: (Post & { votes: PostVotes })[]
+  posts: PostListItem[]
 }
 
 export function PlayfulLanding({ posts }: PlayfulLandingProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
+  const deferredSearchQuery = useDeferredValue(searchQuery)
 
-  // Get all unique tags
   const allTags = useMemo(() => {
-    const tags = posts.flatMap(post => post.frontMatter.tags)
-    return Array.from(new Set(tags))
+    const tagSet = new Set<string>()
+    for (const post of posts) {
+      for (const tag of post.tags) {
+        tagSet.add(tag)
+      }
+    }
+    return Array.from(tagSet)
   }, [posts])
 
-  // Split tags for display (show first 5, rest in dropdown)
-  const maxVisibleTags = 5
-  const visibleTags = allTags.slice(0, maxVisibleTags)
-  const dropdownTags = allTags.slice(maxVisibleTags)
+  const visibleTags = allTags.slice(0, MAX_VISIBLE_TAGS)
+  const dropdownTags = allTags.slice(MAX_VISIBLE_TAGS)
 
-  // Filter posts
+  const normalizedQuery = deferredSearchQuery.trim().toLowerCase()
+
   const filteredPosts = useMemo(() => {
-    let filtered = posts
-    
-    if (searchQuery) {
-      filtered = filtered.filter(post => 
-        post.frontMatter.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        post.frontMatter.excerpt?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        post.frontMatter.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    }
-    
-    if (selectedTag) {
-      filtered = filtered.filter(post => 
-        post.frontMatter.tags.includes(selectedTag)
-      )
-    }
-    
-    return filtered
-  }, [posts, searchQuery, selectedTag])
+    return posts.filter((post) => {
+      if (selectedTag && !post.tags.includes(selectedTag)) {
+        return false
+      }
+
+      if (!normalizedQuery) {
+        return true
+      }
+
+      if (post.title.toLowerCase().includes(normalizedQuery)) {
+        return true
+      }
+
+      if (post.excerpt.toLowerCase().includes(normalizedQuery)) {
+        return true
+      }
+
+      return post.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery))
+    })
+  }, [posts, selectedTag, normalizedQuery])
+
+  const handleTagSelect = useCallback((tag: string) => {
+    setSelectedTag((current) => (current === tag ? null : tag))
+  }, [])
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery('')
+    setSelectedTag(null)
+  }, [])
+
+  const hasActiveFilters = Boolean(searchQuery || selectedTag)
 
   return (
     <div className="min-h-screen relative">
-      {/* Vertical dashed borders aligned with header elements */}
       <div className="absolute top-20 bottom-0 w-full z-0 pointer-events-none">
         <div className="max-w-4xl mx-auto px-4 relative h-full">
-          {/* Line under "Blog" text */}
-          <div className="absolute left-4 top-0 bottom-0 w-px border-l-2 border-dashed border-muted-foreground/15 pointer-events-none"></div>
-          {/* Line under toggle button */}
-          <div className="absolute right-4 top-0 bottom-0 w-px border-l-2 border-dashed border-muted-foreground/15 pointer-events-none"></div>
+          <div className="absolute left-4 top-0 bottom-0 w-px border-l-2 border-dashed border-muted-foreground/15 pointer-events-none" />
+          <div className="absolute right-4 top-0 bottom-0 w-px border-l-2 border-dashed border-muted-foreground/15 pointer-events-none" />
         </div>
       </div>
-      
-      {/* Header */}
-      <motion.header 
+
+      <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="sticky top-0 z-50 bg-background/80 backdrop-blur-md"
       >
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <motion.h1 
+            <motion.h1
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1 }}
               className="text-lg font-medium relative"
-              id="blog-title"
             >
               Blog
             </motion.h1>
-            
-            <div className="relative" id="mode-toggle">
-              <ModeToggle />
-            </div>
+
+            <ModeToggle />
           </div>
         </div>
-        
-        {/* Full-width dashed border at bottom of navbar */}
-        <div className="w-full border-b-2 border-dashed border-muted-foreground/20"></div>
+
+        <div className="w-full border-b-2 border-dashed border-muted-foreground/20" />
       </motion.header>
 
-      {/* Hero Section */}
       <section className="py-8 relative z-10">
         <div className="max-w-2xl mx-auto px-4 text-center">
           <motion.div
@@ -112,13 +113,11 @@ export function PlayfulLanding({ posts }: PlayfulLandingProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl font-medium mb-4">
-              Simple thoughts, simply shared
-            </h2>
+            <h2 className="text-3xl font-medium mb-4">Simple thoughts, simply shared</h2>
             <p className="text-muted-foreground mb-8">
               A collection of ideas, insights, and experiences
             </p>
-            
+
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -130,9 +129,8 @@ export function PlayfulLanding({ posts }: PlayfulLandingProps) {
         </div>
       </section>
 
-      {/* Tags Filter */}
-      {allTags.length > 0 && (
-        <motion.section 
+      {allTags.length > 0 ? (
+        <motion.section
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
@@ -145,7 +143,7 @@ export function PlayfulLanding({ posts }: PlayfulLandingProps) {
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               <Button
-                variant={selectedTag === null ? "default" : "ghost"}
+                variant={selectedTag === null ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setSelectedTag(null)}
                 className={`rounded-full text-xs border border-border cursor-pointer ${
@@ -154,8 +152,7 @@ export function PlayfulLanding({ posts }: PlayfulLandingProps) {
               >
                 All
               </Button>
-              
-              {/* Show first 5 tags inline */}
+
               {visibleTags.map((tag, index) => (
                 <motion.div
                   key={tag}
@@ -164,9 +161,9 @@ export function PlayfulLanding({ posts }: PlayfulLandingProps) {
                   transition={{ delay: 0.1 * index, duration: 0.3 }}
                 >
                   <Button
-                    variant={selectedTag === tag ? "default" : "ghost"}
+                    variant={selectedTag === tag ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                    onClick={() => handleTagSelect(tag)}
                     className={`rounded-full text-xs border border-border cursor-pointer ${
                       selectedTag === tag ? '' : 'hover:bg-muted hover:text-foreground'
                     }`}
@@ -175,9 +172,8 @@ export function PlayfulLanding({ posts }: PlayfulLandingProps) {
                   </Button>
                 </motion.div>
               ))}
-              
-              {/* Dropdown for remaining tags if there are more than 5 */}
-              {dropdownTags.length > 0 && (
+
+              {dropdownTags.length > 0 ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -193,7 +189,7 @@ export function PlayfulLanding({ posts }: PlayfulLandingProps) {
                     {dropdownTags.map((tag) => (
                       <DropdownMenuItem
                         key={tag}
-                        onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                        onClick={() => handleTagSelect(tag)}
                         className={`cursor-pointer ${
                           selectedTag === tag ? 'bg-primary text-primary-foreground' : ''
                         }`}
@@ -203,102 +199,40 @@ export function PlayfulLanding({ posts }: PlayfulLandingProps) {
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-              )}
+              ) : null}
             </div>
           </div>
         </motion.section>
-      )}
+      ) : null}
 
-      {/* Posts Section */}
       <main className="max-w-2xl mx-auto px-4 pt-8 pb-16 relative z-10">
         {filteredPosts.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">
             <p className="text-muted-foreground mb-4">
-              {searchQuery || selectedTag ? 'No posts found' : 'No posts yet'}
+              {hasActiveFilters ? 'No posts found' : 'No posts yet'}
             </p>
-            {(searchQuery || selectedTag) && (
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSearchQuery('')
-                  setSelectedTag(null)
-                }}
-                size="sm"
-              >
+            {hasActiveFilters ? (
+              <Button variant="outline" onClick={clearFilters} size="sm">
                 Clear filters
               </Button>
-            )}
+            ) : null}
           </motion.div>
         ) : (
           <div className="space-y-12">
             {filteredPosts.map((post, index) => (
-              <motion.article 
+              <motion.div
                 key={post.slug}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
                 whileHover={{ y: -2 }}
-                className="group"
               >
-                <div className="flex items-start gap-4">
-                  <VoteButtons postSlug={post.slug} initialVotes={post.votes} />
-                  
-                  <div className="flex-1">
-                    <h3 className="text-xl font-medium mb-2">
-                      <Link 
-                        href={`/blog/${post.slug}`} 
-                        className="group-hover:text-muted-foreground transition-colors"
-                      >
-                        {post.frontMatter.title}
-                      </Link>
-                    </h3>
-                    
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        {new Date(post.frontMatter.date).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <BookOpen className="w-4 h-4" />
-                        {calculateReadingTime(post.content)}
-                      </div>
-                    </div>
-                    
-                    {post.frontMatter.excerpt && (
-                      <p className="text-muted-foreground leading-relaxed mb-4">
-                        {post.frontMatter.excerpt}
-                      </p>
-                    )}
-                    
-                    {post.frontMatter.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {post.frontMatter.tags.map((tag) => (
-                          <Badge 
-                            key={tag} 
-                            variant="secondary" 
-                            className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                            onClick={() => setSelectedTag(tag)}
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.article>
+                <LandingPost post={post} onTagSelect={handleTagSelect} />
+              </motion.div>
             ))}
           </div>
         )}
       </main>
     </div>
   )
-} 
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, FormEvent } from 'react'
+import { useState, useTransition, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,42 +9,36 @@ import Link from 'next/link'
 export default function LoginPage() {
   const [credentials, setCredentials] = useState({
     username: '',
-    password: ''
+    password: '',
   })
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  
+  const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault()
     setError('')
 
-    console.log('Attempting login with:', credentials) // Debug log
+    startTransition(async () => {
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(credentials),
+        })
 
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials)
-      })
+        const data = await response.json()
 
-      const data = await response.json()
-      console.log('Login response:', data) // Debug log
-
-      if (response.ok) {
-        router.push('/admin/dashboard')
-        router.refresh()
-      } else {
-        setError(data.error || 'Login failed')
+        if (response.ok) {
+          router.push('/admin/dashboard')
+          router.refresh()
+        } else {
+          setError(data.error || 'Login failed')
+        }
+      } catch {
+        setError('Network error. Please try again.')
       }
-    } catch (err) {
-      console.error('Login error:', err) // Debug log
-      setError('Network error. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
+    })
   }
 
   return (
@@ -56,51 +50,35 @@ export default function LoginPage() {
             ← Back to blog
           </Link>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Input
-              type="text"
-              placeholder="Username"
-              value={credentials.username}
-              onChange={(e) =>
-                setCredentials(prev => ({ ...prev, username: e.target.value }))
-              }
-              required
-            />
-          </div>
-          
-          <div>
-            <Input
-              type="password"
-              placeholder="Password"
-              value={credentials.password}
-              onChange={(e) =>
-                setCredentials(prev => ({ ...prev, password: e.target.value }))
-              }
-              required
-            />
-          </div>
+          <Input
+            type="text"
+            placeholder="Username"
+            value={credentials.username}
+            onChange={(event) =>
+              setCredentials((previous) => ({ ...previous, username: event.target.value }))
+            }
+            required
+          />
 
-          {error && (
-            <div className="text-sm text-red-500 text-center">
-              {error}
-            </div>
-          )}
+          <Input
+            type="password"
+            placeholder="Password"
+            value={credentials.password}
+            onChange={(event) =>
+              setCredentials((previous) => ({ ...previous, password: event.target.value }))
+            }
+            required
+          />
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Signing in...' : 'Sign In'}
+          {error ? <div className="text-sm text-red-500 text-center">{error}</div> : null}
+
+          <Button type="submit" className="w-full" disabled={isPending}>
+            {isPending ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
-        
-        <div className="text-center mt-4 text-xs text-muted-foreground">
-          Default: admin / admin123
-        </div>
       </div>
     </div>
   )
-} 
+}

@@ -21,10 +21,11 @@ import {
 } from '@/components/ui/sidebar'
 
 interface AdminLayoutProps {
-  children: ReactNode;
+  children: ReactNode
+  title?: string
 }
 
-export function AdminLayout({ children }: AdminLayoutProps) {
+export function AdminLayout({ children, title }: AdminLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
 
@@ -65,7 +66,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarHeader>
-          
+
           <SidebarContent>
             <SidebarGroup>
               <SidebarGroupLabel>Navigation</SidebarGroupLabel>
@@ -111,13 +112,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </Sidebar>
 
         <SidebarInset>
-        
-          
-          <div className="flex flex-1 flex-col gap-4 p-4 ">
+          <div className="flex flex-1 flex-col gap-4 p-4">
+            {title ? <h1 className="text-2xl font-semibold">{title}</h1> : null}
             {children}
           </div>
         </SidebarInset>
       </SidebarProvider>
     </AuthGuard>
   )
-} 
+}
